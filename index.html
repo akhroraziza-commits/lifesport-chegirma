@@ -65,6 +65,9 @@ footer{color:var(--muted);font-size:12.5px;padding:16px 0 28px;text-align:center
 .soldb{flex:0 0 auto;color:#fff;font-weight:800;border-radius:10px;padding:4px 8px;font-size:13px;letter-spacing:.5px}
 ul.st li.gone .bn,ul.st li.gone .q{text-decoration:line-through;color:var(--muted)}
 .gonetag{flex:0 0 auto;font-size:13px;font-weight:700;white-space:nowrap;color:#b4232a;background:#fde7e8;border:1px solid #f5b5b8;border-radius:8px;padding:5px 10px;cursor:default}
+.outchip{background:#fde7e8;color:#b4232a;border:1px solid #f5b5b8;font-weight:650}
+.outchip[aria-pressed=true]{background:#c8262e;color:#fff;border-color:#c8262e}
+@media (prefers-color-scheme:dark){.outchip{background:#3a1c1f;color:#ff9a9f;border-color:#6b2a2f}.outchip[aria-pressed=true]{background:#e5424a;color:#fff;border-color:#e5424a}}
 @media (prefers-color-scheme:dark){.gonetag{background:#3a1c1f;color:#ff9a9f;border-color:#6b2a2f}}
 header a.jump{display:inline-block;margin-top:12px;background:#fff;color:var(--brand);text-decoration:none;font-weight:700;border-radius:999px;padding:7px 14px;font-size:14px}
 @media (max-width:700px){.bar{position:static}header h1{font-size:22px}}
@@ -92,6 +95,7 @@ header a.jump{display:inline-block;margin-top:12px;background:#fff;color:var(--b
   </div>
   <div class="chips" id="br" role="group" aria-label="Filial"></div>
   <div class="chips" id="dc" role="group" aria-label="Chegirma"></div>
+  <div class="chips"><button class="chip outchip" id="outb" aria-pressed="false">✕ Tugagan mahsulotlar</button></div>
 </div></div>
 
 <main class="wrap">
@@ -115,7 +119,7 @@ const fmt=n=>n.toLocaleString('ru-RU').replace(/ /g,' ');
 const tel=Object.fromEntries(D.branches.map(b=>[b.n,b.t]));
 const telFmt=t=>t.replace(/^\+998(\d\d)(\d{3})(\d\d)(\d\d)$/,'+998 $1 $2 $3 $4');
 const $=id=>document.getElementById(id);
-const st={q:'',cat:'',brand:'',br:'',dc:0,sort:'disc',shown:48};
+const st={q:'',cat:'',brand:'',br:'',dc:0,sort:'disc',shown:48,out:false};
 
 function opts(el,label,vals){el.innerHTML=`<option value="">${label}</option>`+vals.map(v=>`<option>${v[0]}</option>`).join('')}
 const count=key=>{const m={};D.items.forEach(p=>m[p[key]]=(m[p[key]]||0)+1);return Object.entries(m).sort((a,b)=>a[0]==='Boshqa'?1:b[0]==='Boshqa'?-1:a[0].localeCompare(b[0]))};
@@ -138,13 +142,13 @@ function view(p){
   const pool=out?s:live;
   const best=pool.reduce((a,x)=>x[4]<a[4]?x:a,pool[0]);
   const disc=Math.max(...pool.map(x=>x[3]));
-  return {p,s,best,disc,out};
+  return {p,s,best,disc,out,gone:live.length<s.length};
 }
 function list(){
   const q=st.q.trim().toLowerCase();
   let r=D.items.map(view).filter(v=>v
     &&(!q||v.p.n.toLowerCase().includes(q)||v.p.b.toLowerCase().includes(q)||(v.p.bc||"").includes(q))
-    &&(!st.cat||v.p.c===st.cat)&&(!st.brand||v.p.b===st.brand)&&(!st.dc||v.disc>=st.dc));
+    &&(!st.cat||v.p.c===st.cat)&&(!st.brand||v.p.b===st.brand)&&(!st.dc||v.disc>=st.dc)&&(!st.out||v.gone));
   const by={disc:(a,b)=>b.disc-a.disc||b.best[2]-a.best[2],cheap:(a,b)=>a.best[4]-b.best[4],exp:(a,b)=>b.best[4]-a.best[4],name:(a,b)=>a.p.n.localeCompare(b.p.n)};
   return r.sort((a,b)=>a.out-b.out||by[st.sort](a,b));
 }
@@ -161,11 +165,15 @@ function card(v){
 function render(){
   const r=list();
   const outN=r.filter(v=>v.out).length;
-  $('meta').textContent=`${r.length-outN} ta mahsulot sotuvda`+(outN?` · ${outN} tasi tugadi`:'')+(st.br?` · ${st.br} filiali`:'');
+  const allGone=D.items.map(view).filter(v=>v&&v.gone).length;
+  $('outb').textContent=`✕ Tugagan mahsulotlar (${allGone})`;
+  $('meta').textContent=(st.out?`${r.length} ta mahsulot tugagan`+(st.br||!outN?'':` (${outN} tasi hamma filialda)`):`${r.length-outN} ta mahsulot sotuvda`+(outN?` · ${outN} tasi tugadi`:''))+(st.br?` · ${st.br} filiali`:'');
+  $('empty').textContent=st.out?(st.br?`${st.br} filialida hozircha tugagan mahsulot yo'q.`:"Hozircha barcha filiallarda tugagan mahsulot yo'q."):"Hech narsa topilmadi. Filtrni o'zgartirib ko'ring.";
   $('grid').innerHTML=r.slice(0,st.shown).map(card).join('');
   $('empty').hidden=r.length>0;
   $('more').hidden=r.length<=st.shown;
 }
+$('outb').onclick=()=>{st.out=!st.out;st.shown=48;$('outb').setAttribute('aria-pressed',st.out);render()};
 $('more').onclick=()=>{st.shown+=48;render()};
 let t;$('q').oninput=e=>{clearTimeout(t);t=setTimeout(()=>{st.q=e.target.value;st.shown=48;render()},150)};
 ['cat','brand','sort'].forEach(k=>$(k).onchange=e=>{st[k]=e.target.value;st.shown=48;render()});
