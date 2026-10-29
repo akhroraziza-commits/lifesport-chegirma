@@ -64,7 +64,8 @@ footer{color:var(--muted);font-size:12.5px;padding:16px 0 28px;text-align:center
 .card.out .badge,.soldb{background:var(--muted)}
 .soldb{flex:0 0 auto;color:#fff;font-weight:800;border-radius:10px;padding:4px 8px;font-size:13px;letter-spacing:.5px}
 ul.st li.gone .bn,ul.st li.gone .q{text-decoration:line-through;color:var(--muted)}
-.gonetag{flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:5px 9px}
+.gonetag{flex:0 0 auto;font-size:13px;font-weight:700;white-space:nowrap;color:#b4232a;background:#fde7e8;border:1px solid #f5b5b8;border-radius:8px;padding:5px 10px;cursor:default}
+@media (prefers-color-scheme:dark){.gonetag{background:#3a1c1f;color:#ff9a9f;border-color:#6b2a2f}}
 header a.jump{display:inline-block;margin-top:12px;background:#fff;color:var(--brand);text-decoration:none;font-weight:700;border-radius:999px;padding:7px 14px;font-size:14px}
 @media (max-width:700px){.bar{position:static}header h1{font-size:22px}}
 </style>
@@ -151,7 +152,7 @@ const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&qu
 function card(v){
   const {p,s,best,disc,out}=v;
   const rows=s.map(x=>x[5]
-    ?`<li class="gone"><span><span class="bn">${x[0]}</span> <span class="q">· ${fmt(x[4])} so'm</span></span><span class="gonetag">Tugadi</span></li>`
+    ?`<li class="gone"><span><span class="bn">${x[0]}</span> <span class="q">· ${fmt(x[4])} so'm</span></span><span class="gonetag" role="button" aria-disabled="true">✕ Tugadi</span></li>`
     :`<li><span><span class="bn">${x[0]}</span> <span class="q">· ${x[1]} dona · ${fmt(x[4])} so'm${x[3]!==best[3]?` (−${x[3]}%)`:''}</span></span><a class="call" href="tel:${tel[x[0]]}">📞 Bron</a></li>`).join('');
   return `<article class="card${out?' out':''}"><div class="top"><div><h3 class="name">${esc(p.n)}</h3>${p.bc?`<div class="bc">${esc(p.bc)}</div>`:''}<div class="tags">${esc(p.b)} · ${esc(p.c)}</div></div>${out?'<span class="soldb">TUGADI</span>':`<span class="badge">−${disc}%</span>`}</div>
   <div class="price"><span class="new">${fmt(best[4])} so'm</span><span class="old">${fmt(best[2])}</span></div>
