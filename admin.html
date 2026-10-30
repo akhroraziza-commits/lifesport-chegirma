@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>LIFE SPORT — Boshqaruv</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#626b78;--line:#e3e6eb;--brand:#e5242b;--ok:#0f7b3f;--chip:#eef0f3}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eef0f3;--muted:#9aa3b0;--line:#2a2f38;--ok:#3ccf7c;--chip:#232730}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+header{background:var(--brand);color:#fff;padding:16px 0}
+header h1{margin:0;font-size:22px}
+header p{margin:4px 0 0;opacity:.9;font-size:14px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:14px 0}
+input,button,select{font:inherit;color:var(--ink)}
+input[type=text],input[type=password],input[type=search],input[type=number]{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;min-width:0}
+button{border:0;border-radius:10px;padding:9px 14px;background:var(--chip);cursor:pointer;font-weight:600}
+button.main{background:var(--brand);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted);font-size:13px}
+details summary{cursor:pointer;font-weight:600}
+ol{padding-left:20px;margin:8px 0}
+.item{display:grid;grid-template-columns:84px 1fr;gap:12px;border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0}
+.ph{width:84px;height:84px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px}
+.nm{font-weight:650}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.ctl input[type=number]{width:80px}
+.tag{display:inline-block;font-size:12px;border-radius:999px;padding:2px 8px;background:#fff4d6;color:#8a5a00;margin-left:6px}
+.st{font-size:13px;margin-top:6px}
+.st.ok{color:var(--ok)}.st.err{color:var(--brand)}
+.prev{width:84px;height:84px;border:1px dashed var(--line);border-radius:10px;display:none}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>LIFE SPORT — Boshqaruv</h1>
+  <p>Chegirma foizini o'zgartirish, mahsulotni yashirish va rasmini almashtirish. O'zgarish saytda 1–2 daqiqada ko'rinadi.</p>
+</div></header>
+
+<main class="wrap">
+  <div class="box" id="login">
+    <div class="row">
+      <input id="tok" type="password" placeholder="GitHub kaliti (token)" style="flex:1 1 300px" autocomplete="off">
+      <button class="main" id="enter">Kirish</button>
+    </div>
+    <div class="st" id="lst"></div>
+    <details style="margin-top:10px"><summary>Kalitni qanday olish kerak?</summary>
+      <ol>
+        <li>GitHub'ga kiring va <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">shu sahifani</a> oching.</li>
+        <li><b>Token name</b>: masalan "chegirma admin". <b>Expiration</b>: 1 yil.</li>
+        <li><b>Repository access</b> → <b>Only select repositories</b> → <b>lifesport-chegirma</b>.</li>
+        <li><b>Permissions</b> → <b>Repository permissions</b> → <b>Contents</b> → <b>Read and write</b>.</li>
+        <li><b>Generate token</b> tugmasini bosing, chiqqan kalitni nusxalab shu yerga qo'ying.</li>
+      </ol>
+      <div class="muted">Kalit faqat shu brauzerda saqlanadi. Uni hech kimga bermang.</div>
+    </details>
+  </div>
+
+  <div class="box" id="panel" hidden>
+    <div class="row">
+      <input id="q" type="search" placeholder="Qidirish: nomi, brend yoki shtrix-kod" style="flex:1 1 280px">
+      <button id="onlyEd">Faqat o'zgartirilganlar</button>
+      <button id="logout">Chiqish</button>
+    </div>
+    <div class="muted" id="meta" style="margin-top:8px"></div>
+    <div id="list"></div>
+  </div>
+</main>
+
+<script>
+const OWNER='akhroraziza-commits', REPO='lifesport-chegirma', API=`https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let TOKEN='', ITEMS=[], EDITS={}, onlyEdited=false;
+try{TOKEN=localStorage.getItem('ls_admin_token')||''}catch(e){}
+
+const gh=(path,opt={})=>fetch(API+path,{...opt,headers:{Authorization:'Bearer '+TOKEN,Accept:'application/vnd.github+json',...(opt.headers||{})}});
+const b64=s=>btoa(unescape(encodeURIComponent(s)));
+const unb64=s=>decodeURIComponent(escape(atob(s.replace(/\n/g,''))));
+
+async function readEdits(){
+  const r=await gh('edits.json?ref=main&t='+Date.now());
+  if(r.status===404)return {data:{},sha:null};
+  if(!r.ok)throw new Error('edits.json: '+r.status);
+  const j=await r.json();return {data:JSON.parse(unb64(j.content)||'{}'),sha:j.sha};
+}
+async function putFile(path,contentB64,message){
+  let sha;const g=await gh(path+'?ref=main&t='+Date.now());
+  if(g.ok)sha=(await g.json()).sha;
+  const r=await gh(path,{method:'PUT',body:JSON.stringify({message,content:contentB64,sha,branch:'main'})});
+  if(!r.ok)throw new Error(path+': '+r.status+' '+(await r.text()).slice(0,120));
+}
+
+async function enter(){
+  TOKEN=$('tok').value.trim()||TOKEN;
+  $('lst').className='st';$('lst').textContent='Tekshirilyapti...';
+  try{
+    const r=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`,{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!r.ok)throw new Error(r.status===401?'Kalit noto\'g\'ri':'Xato '+r.status);
+    const j=await r.json();
+    if(!(j.permissions&&j.permissions.push))throw new Error('Bu kalitda yozish huquqi yo\'q (Contents: Read and write kerak)');
+    try{localStorage.setItem('ls_admin_token',TOKEN)}catch(e){}
+    const h=await (await fetch('index.html?t='+Date.now(),{cache:'no-store'})).text();
+    ITEMS=JSON.parse(h.match(/const D=(\{.*?\});\r?\n/s)[1]).items;
+    EDITS=(await readEdits()).data;
+    $('login').hidden=true;$('panel').hidden=false;render();
+  }catch(e){$('lst').className='st err';$('lst').textContent=e.message;}
+}
+
+function origDisc(p){return Math.max(...p.s.map(s=>s[3]))}
+function render(){
+  const q=$('q').value.trim().toLowerCase();
+  let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
+  $('meta').textContent=`${r.length} ta mahsulot${r.length>40?' (birinchi 40 tasi ko\'rsatilgan, qidiruvni aniqroq yozing)':''} · o'zgartirilgan: ${Object.keys(EDITS).length} ta`;
+  $('list').innerHTML=r.slice(0,40).map(p=>{const e=EDITS[p.id]||{};const img=(p.im||e.img)?`img/${p.id}.jpg${e.img?'?v='+e.img:''}`:'';
+    return `<div class="item" data-id="${p.id}">
+      ${img?`<img class="ph" src="${img}" alt="">`:'<div class="ph"></div>'}
+      <div><div class="nm">${esc(p.n)}${EDITS[p.id]?'<span class="tag">o\'zgartirilgan</span>':''}</div>
+        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}% · ${p.s.map(s=>s[0]).join(', ')}</div>
+        <div class="ctl">
+          <label>Chegirma % <input type="number" min="0" max="90" class="d" value="${e.d!=null?e.d:''}" placeholder="${origDisc(p)}"></label>
+          <label><input type="checkbox" class="h" ${e.h?'checked':''}> Yashirish</label>
+          <label>Rasm <input type="file" accept="image/*" class="f"></label>
+          <canvas class="prev" width="240" height="240"></canvas>
+          <button class="main sv">Saqlash</button>
+          ${EDITS[p.id]?'<button class="rs">Asl holiga qaytarish</button>':''}
+        </div>
+        <div class="st"></div></div></div>`}).join('');
+}
+
+// Fit the photo on a white 240x240 square, the same look as the other site photos.
+function toSquare(file,canvas){return new Promise((ok,bad)=>{const im=new Image();im.onload=()=>{
+  const c=canvas.getContext('2d'),S=240,inner=S*0.84,k=Math.min(inner/im.width,inner/im.height),w=im.width*k,h=im.height*k;
+  c.fillStyle='#fff';c.fillRect(0,0,S,S);c.drawImage(im,(S-w)/2,(S-h)/2,w,h);canvas.style.display='block';
+  ok(canvas.toDataURL('image/jpeg',0.85).split(',')[1]);};im.onerror=()=>bad(new Error('Rasmni ochib bo\'lmadi'));im.src=URL.createObjectURL(file);});}
+
+$('list').addEventListener('change',async ev=>{
+  if(!ev.target.classList.contains('f')||!ev.target.files[0])return;
+  const box=ev.target.closest('.item');try{box._img=await toSquare(ev.target.files[0],box.querySelector('.prev'))}catch(e){box.querySelector('.st').textContent=e.message}
+});
+$('list').addEventListener('click',async ev=>{
+  const box=ev.target.closest('.item');if(!box)return;const id=box.dataset.id,st=box.querySelector('.st');
+  const save=ev.target.classList.contains('sv'),reset=ev.target.classList.contains('rs');if(!save&&!reset)return;
+  ev.target.disabled=true;st.className='st';st.textContent='Saqlanyapti...';
+  try{
+    const p=ITEMS.find(x=>String(x.id)===id);
+    if(save&&box._img)await putFile(`img/${id}.jpg`,box._img,`Admin: rasm — ${p.n}`);
+    const {data,sha}=await readEdits();
+    if(reset){delete data[id];}
+    else{const e=data[id]||{};const dv=box.querySelector('.d').value.trim();
+      if(dv==='')delete e.d;else{const n=Math.round(+dv);if(!(n>=0&&n<=90))throw new Error('Chegirma 0 dan 90 gacha bo\'lsin');e.d=n;}
+      if(box.querySelector('.h').checked)e.h=1;else delete e.h;
+      if(box._img)e.img=Date.now();
+      if(Object.keys(e).length)data[id]=e;else delete data[id];}
+    const r=await gh('edits.json',{method:'PUT',body:JSON.stringify({message:`Admin: ${reset?'qaytarildi':'o\'zgartirildi'} — ${p.n}`,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
+    if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?' (boshqa o\'zgarish bilan to\'qnashdi, qayta bosing)':''));
+    EDITS=data;box._img=null;render();
+    const nb=document.querySelector(`.item[data-id="${id}"] .st`);if(nb){nb.className='st ok';nb.textContent='Saqlandi. Saytda 1–2 daqiqada ko\'rinadi.';}
+  }catch(e){st.className='st err';st.textContent=e.message;ev.target.disabled=false;}
+});
+
+let t;$('q').oninput=()=>{clearTimeout(t);t=setTimeout(render,150)};
+$('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdited?'Hammasi':'Faqat o\'zgartirilganlar';render()};
+$('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
+$('logout').onclick=()=>{try{localStorage.removeItem('ls_admin_token')}catch(e){}location.reload()};
+if(TOKEN)enter();
+</script>
+</body>
+</html>
