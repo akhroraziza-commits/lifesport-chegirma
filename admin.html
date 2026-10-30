@@ -67,6 +67,7 @@ ol{padding-left:20px;margin:8px 0}
       <button id="onlyEd">Faqat o'zgartirilganlar</button>
       <button id="logout">Chiqish</button>
     </div>
+    <div class="row" style="margin-top:10px"><span id="daily" style="flex:1 1 300px"></span><button id="dailyBtn"></button></div>
     <div class="muted" id="meta" style="margin-top:8px"></div>
     <div id="list"></div>
   </div>
@@ -113,15 +114,27 @@ async function enter(){
 }
 
 function origDisc(p){return Math.max(...p.s.map(s=>s[3]))}
+// Daily +1% rule, same formula as index.html.
+const DAY=864e5;
+const dailyCfg=()=>Object.assign({start:Date.UTC(2026,9,31,4),step:1},EDITS._daily||{});
+const xtra=(c,t)=>t<c.start?0:(Math.floor((t-c.start)/DAY)+1)*c.step;
+function renderDaily(){const c=dailyCfg(),x=xtra(c,c.stop||Date.now());
+  $('daily').innerHTML=c.stop?`<b>Kunlik +1% to'xtatilgan.</b> Hozirgi qo'shimcha: +${x}%.`
+    :`<b>Har kuni 09:00 da barcha chegirmalar +1% oshadi.</b> Bugungi qo'shimcha: +${x}%${x?'':' (31.10.2026 dan boshlanadi)'}.`;
+  $('dailyBtn').textContent=c.stop?'Davom ettirish':"To'xtatish";}
+async function saveEdits(data,sha,message){
+  const r=await gh('edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
+  if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?" (boshqa o'zgarish bilan to'qnashdi, qayta bosing)":''));}
 function render(){
   const q=$('q').value.trim().toLowerCase();
   let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
-  $('meta').textContent=`${r.length} ta mahsulot${r.length>40?' (birinchi 40 tasi ko\'rsatilgan, qidiruvni aniqroq yozing)':''} · o'zgartirilgan: ${Object.keys(EDITS).length} ta`;
+  renderDaily();const x=xtra(dailyCfg(),dailyCfg().stop||Date.now());
+  $('meta').textContent=`${r.length} ta mahsulot${r.length>40?' (birinchi 40 tasi ko\'rsatilgan, qidiruvni aniqroq yozing)':''} · o'zgartirilgan: ${Object.keys(EDITS).filter(k=>k[0]!=='_').length} ta`;
   $('list').innerHTML=r.slice(0,40).map(p=>{const e=EDITS[p.id]||{};const img=(p.im||e.img)?`img/${p.id}.jpg${e.img?'?v='+e.img:''}`:'';
     return `<div class="item" data-id="${p.id}">
       ${img?`<img class="ph" src="${img}" alt="">`:'<div class="ph"></div>'}
       <div><div class="nm">${esc(p.n)}${EDITS[p.id]?'<span class="tag">o\'zgartirilgan</span>':''}</div>
-        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}% · ${p.s.map(s=>s[0]).join(', ')}</div>
+        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} ·${p.s.map(s=>s[0]).join(', ')}</div>
         <div class="ctl">
           <label>Chegirma % <input type="number" min="0" max="90" class="d" value="${e.d!=null?e.d:''}" placeholder="${origDisc(p)}"></label>
           <label><input type="checkbox" class="h" ${e.h?'checked':''}> Yashirish</label>
@@ -157,13 +170,19 @@ $('list').addEventListener('click',async ev=>{
       if(box.querySelector('.h').checked)e.h=1;else delete e.h;
       if(box._img)e.img=Date.now();
       if(Object.keys(e).length)data[id]=e;else delete data[id];}
-    const r=await gh('edits.json',{method:'PUT',body:JSON.stringify({message:`Admin: ${reset?'qaytarildi':'o\'zgartirildi'} — ${p.n}`,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
-    if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?' (boshqa o\'zgarish bilan to\'qnashdi, qayta bosing)':''));
+    await saveEdits(data,sha,`Admin: ${reset?'qaytarildi':'o\'zgartirildi'} — ${p.n}`);
     EDITS=data;box._img=null;render();
     const nb=document.querySelector(`.item[data-id="${id}"] .st`);if(nb){nb.className='st ok';nb.textContent='Saqlandi. Saytda 1–2 daqiqada ko\'rinadi.';}
   }catch(e){st.className='st err';st.textContent=e.message;ev.target.disabled=false;}
 });
 
+// Stop freezes today's extra; resume moves the start so the extra continues from the frozen value.
+$('dailyBtn').onclick=async()=>{const b=$('dailyBtn');b.disabled=true;
+  try{const {data,sha}=await readEdits();const c=Object.assign({start:Date.UTC(2026,9,31,4),step:1},data._daily||{}),now=Date.now();
+    if(c.stop){const f=xtra(c,c.stop);if(f>0){const last9=Math.floor((now-4*36e5)/DAY)*DAY+4*36e5;c.start=last9-(f/c.step-1)*DAY;}delete c.stop;}
+    else c.stop=now;
+    data._daily=c;await saveEdits(data,sha,c.stop?"Admin: kunlik +1% to'xtatildi":"Admin: kunlik +1% davom ettirildi");EDITS=data;render();}
+  catch(e){alert(e.message)}b.disabled=false;};
 let t;$('q').oninput=()=>{clearTimeout(t);t=setTimeout(render,150)};
 $('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdited?'Hammasi':'Faqat o\'zgartirilganlar';render()};
 $('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
