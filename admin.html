@@ -39,7 +39,7 @@ ol{padding-left:20px;margin:8px 0}
 <body>
 <header><div class="wrap">
   <h1>LIFE SPORT — Boshqaruv</h1>
-  <p>Chegirma foizini o'zgartirish, mahsulotni yashirish va rasmini almashtirish. O'zgarish saytda 1–2 daqiqada ko'rinadi.</p>
+  <p>Chegirma foizini o'zgartirish, mahsulotni saytdan (yoki bitta filialdan) o'chirish va rasmini almashtirish. "Asl holiga qaytarish" o'chirilganni qaytaradi. O'zgarish saytda 1–2 daqiqada ko'rinadi.</p>
 </div></header>
 
 <main class="wrap">
@@ -64,6 +64,7 @@ ol{padding-left:20px;margin:8px 0}
   <div class="box" id="panel" hidden>
     <div class="row">
       <input id="q" type="search" placeholder="Qidirish: nomi, brend yoki shtrix-kod" style="flex:1 1 280px">
+      <select id="fil"><option value="">Barcha filiallar</option></select>
       <button id="onlyEd">Faqat o'zgartirilganlar</button>
       <button id="logout">Chiqish</button>
     </div>
@@ -109,6 +110,8 @@ async function enter(){
     const h=await (await fetch('index.html?t='+Date.now(),{cache:'no-store'})).text();
     ITEMS=JSON.parse(h.match(/const D=(\{.*?\});\r?\n/s)[1]).items;
     EDITS=(await readEdits()).data;
+    const fils=[...new Set(ITEMS.flatMap(p=>p.s.map(s=>s[0])))].sort();
+    $('fil').innerHTML='<option value="">Barcha filiallar</option>'+fils.map(f=>`<option>${esc(f)}</option>`).join('');
     $('login').hidden=true;$('panel').hidden=false;render();
   }catch(e){$('lst').className='st err';$('lst').textContent=e.message;}
 }
@@ -126,21 +129,22 @@ async function saveEdits(data,sha,message){
   const r=await gh('edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
   if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?" (boshqa o'zgarish bilan to'qnashdi, qayta bosing)":''));}
 function render(){
-  const q=$('q').value.trim().toLowerCase();
-  let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
+  const q=$('q').value.trim().toLowerCase(),fil=$('fil').value;
+  let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
   renderDaily();const x=xtra(dailyCfg(),dailyCfg().stop||Date.now());
   $('meta').textContent=`${r.length} ta mahsulot${r.length>40?' (birinchi 40 tasi ko\'rsatilgan, qidiruvni aniqroq yozing)':''} · o'zgartirilgan: ${Object.keys(EDITS).filter(k=>k[0]!=='_').length} ta`;
   $('list').innerHTML=r.slice(0,40).map(p=>{const e=EDITS[p.id]||{};const img=(p.im||e.img)?`img/${p.id}.jpg${e.img?'?v='+e.img:''}`:'';
     return `<div class="item" data-id="${p.id}">
       ${img?`<img class="ph" src="${img}" alt="">`:'<div class="ph"></div>'}
       <div><div class="nm">${esc(p.n)}${EDITS[p.id]?'<span class="tag">o\'zgartirilgan</span>':''}</div>
-        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} ·${p.s.map(s=>s[0]).join(', ')}</div>
+        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} · ${p.s.map(s=>(e.hb||[]).includes(s[0])?`<s title="saytdan o'chirilgan">${esc(s[0])}</s>`:esc(s[0])).join(', ')}${e.h?' · <b>saytdan butunlay o\'chirilgan</b>':''}</div>
         <div class="ctl">
           <label>Chegirma % <input type="number" min="0" max="90" class="d" value="${e.d!=null?e.d:''}" placeholder="${origDisc(p)}"></label>
           <label><input type="checkbox" class="h" ${e.h?'checked':''}> Yashirish</label>
           <label>Rasm <input type="file" accept="image/*" class="f"></label>
           <canvas class="prev" width="240" height="240"></canvas>
           <button class="main sv">Saqlash</button>
+          <button class="del">🗑 ${fil&&!(e.hb||[]).includes(fil)?esc(fil)+' filialidan o\'chirish':'Saytdan o\'chirish'}</button>
           ${EDITS[p.id]?'<button class="rs">Asl holiga qaytarish</button>':''}
         </div>
         <div class="st"></div></div></div>`}).join('');
@@ -158,19 +162,26 @@ $('list').addEventListener('change',async ev=>{
 });
 $('list').addEventListener('click',async ev=>{
   const box=ev.target.closest('.item');if(!box)return;const id=box.dataset.id,st=box.querySelector('.st');
-  const save=ev.target.classList.contains('sv'),reset=ev.target.classList.contains('rs');if(!save&&!reset)return;
+  const save=ev.target.classList.contains('sv'),reset=ev.target.classList.contains('rs'),del=ev.target.classList.contains('del');if(!save&&!reset&&!del)return;
+  const p=ITEMS.find(x=>String(x.id)===id),fil=$('fil').value;
+  // With a branch chosen, delete removes the product from that branch only; otherwise from the whole site.
+  const one=del&&fil&&!((EDITS[id]||{}).hb||[]).includes(fil);
+  if(del&&!confirm(one?`"${p.n}" ni ${fil} filialidan saytdan o'chirasizmi?`:`"${p.n}" ni saytdan butunlay o'chirasizmi?`))return;
   ev.target.disabled=true;st.className='st';st.textContent='Saqlanyapti...';
   try{
-    const p=ITEMS.find(x=>String(x.id)===id);
     if(save&&box._img)await putFile(`img/${id}.jpg`,box._img,`Admin: rasm — ${p.n}`);
     const {data,sha}=await readEdits();
     if(reset){delete data[id];}
+    else if(del){const e=data[id]||{};
+      if(one){e.hb=[...new Set([...(e.hb||[]),fil])];if(p.s.every(s=>e.hb.includes(s[0]))){e.h=1;delete e.hb;}}
+      else{e.h=1;delete e.hb;}
+      data[id]=e;}
     else{const e=data[id]||{};const dv=box.querySelector('.d').value.trim();
       if(dv==='')delete e.d;else{const n=Math.round(+dv);if(!(n>=0&&n<=90))throw new Error('Chegirma 0 dan 90 gacha bo\'lsin');e.d=n;}
       if(box.querySelector('.h').checked)e.h=1;else delete e.h;
       if(box._img)e.img=Date.now();
       if(Object.keys(e).length)data[id]=e;else delete data[id];}
-    await saveEdits(data,sha,`Admin: ${reset?'qaytarildi':'o\'zgartirildi'} — ${p.n}`);
+    await saveEdits(data,sha,`Admin: ${reset?'qaytarildi':del?(one?fil+' filialidan o\'chirildi':'o\'chirildi'):'o\'zgartirildi'} — ${p.n}`);
     EDITS=data;box._img=null;render();
     const nb=document.querySelector(`.item[data-id="${id}"] .st`);if(nb){nb.className='st ok';nb.textContent='Saqlandi. Saytda 1–2 daqiqada ko\'rinadi.';}
   }catch(e){st.className='st err';st.textContent=e.message;ev.target.disabled=false;}
@@ -184,6 +195,7 @@ $('dailyBtn').onclick=async()=>{const b=$('dailyBtn');b.disabled=true;
     data._daily=c;await saveEdits(data,sha,c.stop?"Admin: kunlik +1% to'xtatildi":"Admin: kunlik +1% davom ettirildi");EDITS=data;render();}
   catch(e){alert(e.message)}b.disabled=false;};
 let t;$('q').oninput=()=>{clearTimeout(t);t=setTimeout(render,150)};
+$('fil').onchange=render;
 $('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdited?'Hammasi':'Faqat o\'zgartirilganlar';render()};
 $('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
 $('logout').onclick=()=>{try{localStorage.removeItem('ls_admin_token')}catch(e){}location.reload()};
