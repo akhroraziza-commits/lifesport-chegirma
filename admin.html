@@ -206,7 +206,7 @@ $('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdit
 $('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
 $('logout').onclick=()=>{try{localStorage.removeItem('ls_admin_token')}catch(e){}location.reload()};
 $('sitename').textContent=SITE?' — Toshkent Siti':'';
-$('sitesw').innerHTML=SITE?'<a href="admin.html" style="color:#fff">← Asosiy sayt (12 filial)</a> · Sanoq: tovar yonidagi "Sanaldi (dona)" ga haqiqiy sonini yozib Saqlang — keyin Ox Magazin1 qoldig'i shu songa to'g'rilanadi.':'<a href="admin.html?site=toshkent-siti" style="color:#fff">Toshkent Siti (Magazin1) sahifasi →</a>';
+$('sitesw').innerHTML=SITE?'<a href="admin.html" style="color:#fff">← Asosiy sayt (12 filial)</a> · Sanoq: tovar yonidagi "Sanaldi (dona)" ga haqiqiy sonini yozib Saqlang — keyin Ox Magazin1 qoldig&#39;i shu songa to&#39;g&#39;rilanadi.':'<a href="admin.html?site=toshkent-siti" style="color:#fff">Toshkent Siti (Magazin1) sahifasi →</a>';
 if(TOKEN)enter();
 </script>
 </body>
