@@ -116,6 +116,7 @@ async function enter(){
     EDITS=(await readEdits()).data;
     const fils=[...new Set(ITEMS.flatMap(p=>p.s.map(s=>s[0])))].sort();
     $('fil').innerHTML='<option value="">Barcha filiallar</option>'+fils.map(f=>`<option>${esc(f)}</option>`).join('');
+    $('fil').hidden=!!SITE;  // Toshkent Siti page has one branch only
     $('login').hidden=true;$('panel').hidden=false;render();
   }catch(e){$('lst').className='st err';$('lst').textContent=e.message;}
 }

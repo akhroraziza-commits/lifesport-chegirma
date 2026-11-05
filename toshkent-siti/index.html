@@ -157,6 +157,7 @@ function chips(el,list,key){
     el.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c===b));render()};
 }
 chips($('br'),[['','Barcha filiallar'],...D.branches.map(b=>[b.n,b.n])],'br');
+$('br').hidden=true;  // one branch only (Toshkent Siti), no branch filter
 chips($('dc'),[[0,'Har qanday chegirma'],[22+XTRA,`−${22+XTRA}%`],[19+XTRA,`−${19+XTRA}% va ko'p`],[15+XTRA,`−${15+XTRA}% va ko'p`]],'dc');
 {const ds=D.items.flatMap(p=>p.s.map(s=>s[3]));$('rng').textContent=`${Math.min(...ds)}% dan ${Math.max(...ds)}% gacha`;}
 
