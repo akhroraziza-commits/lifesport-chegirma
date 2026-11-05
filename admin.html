@@ -184,7 +184,7 @@ $('list').addEventListener('click',async ev=>{
     else{const e=data[id]||{};const dv=box.querySelector('.d').value.trim();
       if(dv==='')delete e.d;else{const n=Math.round(+dv);if(!(n>=0&&n<=90))throw new Error('Chegirma 0 dan 90 gacha bo\'lsin');e.d=n;}
       if(box.querySelector('.h').checked)e.h=1;else delete e.h;
-      const qe=box.querySelector('.q');if(qe){const qv=qe.value.trim();if(qv===''){delete e.q;delete e.qt}else{const n=Math.round(+qv);if(!(n>=0&&n<100000))throw new Error('Sanoq 0 yoki undan katta son bo'lsin');if(e.q!==n){e.q=n;e.qt=Date.now()}}}
+      const qe=box.querySelector('.q');if(qe){const qv=qe.value.trim();if(qv===''){delete e.q;delete e.qt}else{const n=Math.round(+qv);if(!(n>=0&&n<100000))throw new Error("Sanoq 0 yoki undan katta son bo'lsin");if(e.q!==n){e.q=n;e.qt=Date.now()}}}
       if(box._img)e.img=Date.now();
       if(Object.keys(e).length)data[id]=e;else delete data[id];}
     await saveEdits(data,sha,`Admin: ${reset?'qaytarildi':del?(one?fil+' filialidan o\'chirildi':'o\'chirildi'):'o\'zgartirildi'} — ${p.n}`);
