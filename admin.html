@@ -38,7 +38,8 @@ ol{padding-left:20px;margin:8px 0}
 </head>
 <body>
 <header><div class="wrap">
-  <h1>LIFE SPORT — Boshqaruv</h1>
+  <h1>LIFE SPORT — Boshqaruv<span id="sitename"></span></h1>
+  <p id="sitesw"></p>
   <p>Chegirma foizini o'zgartirish, mahsulotni saytdan (yoki bitta filialdan) o'chirish va rasmini almashtirish. "Asl holiga qaytarish" o'chirilganni qaytaradi. O'zgarish saytda 1–2 daqiqada ko'rinadi.</p>
 </div></header>
 
@@ -75,6 +76,9 @@ ol{padding-left:20px;margin:8px 0}
 </main>
 
 <script>
+// ?site=toshkent-siti manages the Toshkent Siti (Magazin1) page in the toshkent-siti/ folder.
+const SITE=new URLSearchParams(location.search).get('site')==='toshkent-siti'?'toshkent-siti/':'';
+const DSTART=SITE?Date.UTC(2026,10,6,4):Date.UTC(2026,9,31,4);
 const OWNER='akhroraziza-commits', REPO='lifesport-chegirma', API=`https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -86,7 +90,7 @@ const b64=s=>btoa(unescape(encodeURIComponent(s)));
 const unb64=s=>decodeURIComponent(escape(atob(s.replace(/\n/g,''))));
 
 async function readEdits(){
-  const r=await gh('edits.json?ref=main&t='+Date.now());
+  const r=await gh(SITE+'edits.json?ref=main&t='+Date.now());
   if(r.status===404)return {data:{},sha:null};
   if(!r.ok)throw new Error('edits.json: '+r.status);
   const j=await r.json();return {data:JSON.parse(unb64(j.content)||'{}'),sha:j.sha};
@@ -107,7 +111,7 @@ async function enter(){
     const j=await r.json();
     if(!(j.permissions&&j.permissions.push))throw new Error('Bu kalitda yozish huquqi yo\'q (Contents: Read and write kerak)');
     try{localStorage.setItem('ls_admin_token',TOKEN)}catch(e){}
-    const h=await (await fetch('index.html?t='+Date.now(),{cache:'no-store'})).text();
+    const h=await (await fetch(SITE+'index.html?t='+Date.now(),{cache:'no-store'})).text();
     ITEMS=JSON.parse(h.match(/const D=(\{.*?\});\r?\n/s)[1]).items;
     EDITS=(await readEdits()).data;
     const fils=[...new Set(ITEMS.flatMap(p=>p.s.map(s=>s[0])))].sort();
@@ -119,20 +123,20 @@ async function enter(){
 function origDisc(p){return Math.max(...p.s.map(s=>s[3]))}
 // Daily +1% rule, same formula as index.html.
 const DAY=864e5;
-const dailyCfg=()=>Object.assign({start:Date.UTC(2026,9,31,4),step:1},EDITS._daily||{});
+const dailyCfg=()=>Object.assign({start:DSTART,step:1},EDITS._daily||{});
 const xtra=(c,t)=>t<c.start?0:(Math.floor((t-c.start)/DAY)+1)*c.step;
 function renderDaily(){const c=dailyCfg(),x=xtra(c,c.stop||Date.now());
   $('daily').innerHTML=c.stop?`<b>Kunlik +1% to'xtatilgan.</b> Hozirgi qo'shimcha: +${x}%.`
     :`<b>Har kuni 09:00 da barcha chegirmalar +1% oshadi.</b> Bugungi qo'shimcha: +${x}%${x?'':' (31.10.2026 dan boshlanadi)'}.`;
   $('dailyBtn').textContent=c.stop?'Davom ettirish':"To'xtatish";}
 async function saveEdits(data,sha,message){
-  const r=await gh('edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
+  const r=await gh(SITE+'edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
   if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?" (boshqa o'zgarish bilan to'qnashdi, qayta bosing)":''));}
 function render(){
   const q=$('q').value.trim().toLowerCase(),fil=$('fil').value;
   let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
   renderDaily();const x=xtra(dailyCfg(),dailyCfg().stop||Date.now());
-  $('meta').textContent=`${r.length} ta mahsulot · o'zgartirilgan: ${Object.keys(EDITS).filter(k=>k[0]!=='_').length} ta`;
+  $('meta').textContent=`${r.length} ta mahsulot · o'zgartirilgan: ${Object.keys(EDITS).filter(k=>k[0]!=='_').length} ta`+(SITE?` · sanalgan, Ox'ga hali kiritilmagan: ${Object.values(EDITS).filter(e=>e&&e.q!=null).length} ta`:'');
   $('list').innerHTML=r.map(p=>{const e=EDITS[p.id]||{};const img=(p.im||e.img)?`img/${p.id}.jpg${e.img?'?v='+e.img:''}`:'';
     return `<div class="item" data-id="${p.id}">
       ${img?`<img class="ph" src="${img}" alt="" loading="lazy">`:'<div class="ph"></div>'}
@@ -140,6 +144,7 @@ function render(){
         <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} · ${p.s.map(s=>(e.hb||[]).includes(s[0])?`<s title="saytdan o'chirilgan">${esc(s[0])}</s>`:esc(s[0])).join(', ')}${e.h?' · <b>saytdan butunlay o\'chirilgan</b>':''}</div>
         <div class="ctl">
           <label>Chegirma % <input type="number" min="0" max="90" class="d" value="${e.d!=null?e.d:''}" placeholder="${origDisc(p)}"></label>
+          ${SITE?`<label title="Inventarizatsiya: do'konda sanab chiqilgan haqiqiy soni">Sanaldi (dona) <input type="number" min="0" class="q" value="${e.q!=null?e.q:''}" placeholder="${p.s[0]?p.s[0][1]:''}"></label>`:''}
           <label><input type="checkbox" class="h" ${e.h?'checked':''}> Yashirish</label>
           <label>Rasm <input type="file" accept="image/*" class="f"></label>
           <canvas class="prev" width="240" height="240"></canvas>
@@ -179,6 +184,7 @@ $('list').addEventListener('click',async ev=>{
     else{const e=data[id]||{};const dv=box.querySelector('.d').value.trim();
       if(dv==='')delete e.d;else{const n=Math.round(+dv);if(!(n>=0&&n<=90))throw new Error('Chegirma 0 dan 90 gacha bo\'lsin');e.d=n;}
       if(box.querySelector('.h').checked)e.h=1;else delete e.h;
+      const qe=box.querySelector('.q');if(qe){const qv=qe.value.trim();if(qv===''){delete e.q;delete e.qt}else{const n=Math.round(+qv);if(!(n>=0&&n<100000))throw new Error('Sanoq 0 yoki undan katta son bo'lsin');if(e.q!==n){e.q=n;e.qt=Date.now()}}}
       if(box._img)e.img=Date.now();
       if(Object.keys(e).length)data[id]=e;else delete data[id];}
     await saveEdits(data,sha,`Admin: ${reset?'qaytarildi':del?(one?fil+' filialidan o\'chirildi':'o\'chirildi'):'o\'zgartirildi'} — ${p.n}`);
@@ -189,7 +195,7 @@ $('list').addEventListener('click',async ev=>{
 
 // Stop freezes today's extra; resume moves the start so the extra continues from the frozen value.
 $('dailyBtn').onclick=async()=>{const b=$('dailyBtn');b.disabled=true;
-  try{const {data,sha}=await readEdits();const c=Object.assign({start:Date.UTC(2026,9,31,4),step:1},data._daily||{}),now=Date.now();
+  try{const {data,sha}=await readEdits();const c=Object.assign({start:DSTART,step:1},data._daily||{}),now=Date.now();
     if(c.stop){const f=xtra(c,c.stop);if(f>0){const last9=Math.floor((now-4*36e5)/DAY)*DAY+4*36e5;c.start=last9-(f/c.step-1)*DAY;}delete c.stop;}
     else c.stop=now;
     data._daily=c;await saveEdits(data,sha,c.stop?"Admin: kunlik +1% to'xtatildi":"Admin: kunlik +1% davom ettirildi");EDITS=data;render();}
@@ -199,6 +205,8 @@ $('fil').onchange=render;
 $('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdited?'Hammasi':'Faqat o\'zgartirilganlar';render()};
 $('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
 $('logout').onclick=()=>{try{localStorage.removeItem('ls_admin_token')}catch(e){}location.reload()};
+$('sitename').textContent=SITE?' — Toshkent Siti':'';
+$('sitesw').innerHTML=SITE?'<a href="admin.html" style="color:#fff">← Asosiy sayt (12 filial)</a> · Sanoq: tovar yonidagi "Sanaldi (dona)" ga haqiqiy sonini yozib Saqlang — keyin Ox Magazin1 qoldig'i shu songa to'g'rilanadi.':'<a href="admin.html?site=toshkent-siti" style="color:#fff">Toshkent Siti (Magazin1) sahifasi →</a>';
 if(TOKEN)enter();
 </script>
 </body>

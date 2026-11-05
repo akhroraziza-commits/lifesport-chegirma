@@ -132,7 +132,9 @@ D.items.forEach(p=>{const hb=E[p.id]&&E[p.id].hb;if(hb)p.s=p.s.filter(s=>!hb.inc
 D.items=D.items.filter(p=>!(E[p.id]&&E[p.id].h)&&p.s.length);
 D.items.forEach(p=>{const e=E[p.id];if(!e)return;
   if(e.d!=null)p.s.forEach(s=>{s[3]=e.d;s[4]=Math.round(s[2]*(100-e.d)/100000)*1000});
-  if(e.img){p.im=1;p.iv=e.img}});
+  if(e.img){p.im=1;p.iv=e.img}
+  // Inventory count from admin.html ("Sanaldi"): shown until it is applied to Ox and rebuilt.
+  if(e.q!=null)p.s.forEach(s=>{s[1]=e.q;s[5]=e.q>0?0:1});});
 // Owner rule (2026-10-30): every day at 09:00 Tashkent all discounts grow by 1 point (22% -> 23%), no upper limit.
 // edits.json "_daily" can move the start, change the step or freeze it ("stop": time).
 const DAILY=Object.assign({start:Date.UTC(2026,10,6,4),step:1},E._daily||{});
