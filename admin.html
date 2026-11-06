@@ -136,7 +136,7 @@ async function saveEdits(data,sha,message){
 function render(){
   const q=$('q').value.trim().toLowerCase(),fil=$('fil').value;
   // Toshkent Siti: a counted product (Sanaldi saved) leaves the main list; "Faqat o'zgartirilganlar" still shows it.
-  let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(onlyEdited||!SITE||!EDITS[p.id]||EDITS[p.id].q==null)&&(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
+  let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(onlyEdited||!SITE||((!EDITS[p.id]||EDITS[p.id].q==null)&&(!p.ic||q)))&&(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
   renderDaily();const x=xtra(dailyCfg(),dailyCfg().stop||Date.now());
   $('meta').textContent=`${r.length} ta mahsulot · o'zgartirilgan: ${Object.keys(EDITS).filter(k=>k[0]!=='_').length} ta`+(SITE?` · sanalgan, Ox'ga hali kiritilmagan: ${Object.values(EDITS).filter(e=>e&&e.q!=null).length} ta`:'');
   $('list').innerHTML=r.map(p=>{const e=EDITS[p.id]||{};const img=(p.im||e.img)?`img/${p.id}.jpg${e.img?'?v='+e.img:''}`:'';
