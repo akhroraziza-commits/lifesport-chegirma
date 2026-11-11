@@ -74,6 +74,7 @@ ol{padding-left:20px;margin:8px 0}
       <input id="q" type="search" placeholder="Qidirish: nomi, brend yoki shtrix-kod" style="flex:1 1 280px">
       <select id="fil"><option value="">Barcha filiallar</option></select>
       <button id="onlyEd">Faqat o'zgartirilganlar</button>
+      <button id="rmBtn" hidden></button>
       <button id="logout">Chiqish</button>
     </div>
     <div class="row" style="margin-top:10px"><span id="daily" style="flex:1 1 300px"></span><button id="dailyBtn"></button></div>
@@ -90,6 +91,8 @@ const OWNER='akhroraziza-commits', REPO='lifesport-chegirma', API=`https://api.g
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let TOKEN='', ITEMS=[], EDITS={}, onlyEdited=false;
+// RM: rows taken off the site by the 11.11 cleanup (removed.json); "_restore" in edits.json brings one back at the next hourly build.
+let RM=[], showRm=false;
 const OPEN=new Set(); // products whose edit controls are unfolded; kept across re-renders
 try{TOKEN=localStorage.getItem('ls_admin_token')||''}catch(e){}
 
@@ -122,6 +125,8 @@ async function enter(){
     const h=await (await fetch(SITE+'index.html?t='+Date.now(),{cache:'no-store'})).text();
     ITEMS=JSON.parse(h.match(/const D=(\{.*?\});\r?\n/s)[1]).items;
     EDITS=(await readEdits()).data;
+    if(!SITE){try{RM=await (await fetch('removed.json?t='+Date.now(),{cache:'no-store'})).json()}catch(e){RM=[]}}
+    $('rmBtn').hidden=!RM.length;rmLabel();
     const fils=[...new Set(ITEMS.flatMap(p=>p.s.map(s=>s[0])))].sort();
     $('fil').innerHTML='<option value="">Barcha filiallar</option>'+fils.map(f=>`<option>${esc(f)}</option>`).join('');
     $('fil').hidden=!!SITE;  // Toshkent Siti page has one branch only
@@ -141,7 +146,24 @@ function renderDaily(){const c=dailyCfg(),x=xtra(c,c.stop||Date.now());
 async function saveEdits(data,sha,message){
   const r=await gh(SITE+'edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
   if(!r.ok)throw new Error('edits.json: '+r.status+(r.status===409?" (boshqa o'zgarish bilan to'qnashdi, qayta bosing)":''));}
+const rkey=(id,b)=>id+'|'+b;
+function rmLabel(){$('rmBtn').textContent=showRm?'← Saytdagi tovarlar':`Saytdan olib tashlanganlar (${RM.length})`}
+function renderRm(){
+  const q=$('q').value.trim().toLowerCase(),fil=$('fil').value,R=new Set(EDITS._restore||[]);
+  const r=RM.filter(p=>(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
+  $('meta').textContent=`${r.length} ta tovar saytdan olib tashlangan (filialda oxirgi 90 kunda sotilgani yoki yangi kelgani uchun, 11.11). Qaytarilsa, saytda bir soat ichida chiqadi.`;
+  $('list').innerHTML=r.map(p=>{const rows=p.s.filter(s=>!fil||s[0]===fil);const all=rows.every(s=>R.has(rkey(p.id,s[0])));
+    return `<div class="item${OPEN.has('r'+p.id)?' open':''}" data-rid="${p.id}">
+      ${p.im?`<img class="ph hd" src="img/${p.id}.jpg" alt="" loading="lazy">`:'<div class="ph hd"></div>'}
+      <div><div class="hd"><div class="nm">${esc(p.n)}${rows.some(s=>R.has(rkey(p.id,s[0])))?'<span class="tag">qaytarilyapti</span>':''}</div>
+        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · ${p.s.map(s=>esc(s[0])+' '+s[1]+' ta').join(', ')}</div></div>
+        <div class="ctl">${rows.map(s=>`<span class="muted">${esc(s[0])}: ${s[1]} ta · ${s[2].toLocaleString('ru-RU')} so'm · −${s[3]}%</span>`).join('<br>')}
+          <button class="main rsb"${all?' disabled':''}>↩ ${all?'Qaytarilgan':fil?esc(fil)+' filialida saytga qaytarish':'Saytga qaytarish'}</button>
+          ${rows.some(s=>R.has(rkey(p.id,s[0])))?'<button class="rsu">Qaytarishni bekor qilish</button>':''}</div>
+        <div class="st"></div></div></div>`}).join('');
+}
 function render(){
+  if(showRm)return renderRm();
   const q=$('q').value.trim().toLowerCase(),fil=$('fil').value;
   // Toshkent Siti: a counted product (Sanaldi saved) leaves the main list; "Faqat o'zgartirilganlar" still shows it.
   let r=ITEMS.filter(p=>(!onlyEdited||EDITS[p.id])&&(onlyEdited||!SITE||((!EDITS[p.id]||EDITS[p.id].q==null)&&(!p.ic||q)))&&(!fil||p.s.some(s=>s[0]===fil))&&(!q||p.n.toLowerCase().includes(q)||p.b.toLowerCase().includes(q)||(p.bc||'').includes(q)));
@@ -175,8 +197,23 @@ $('list').addEventListener('change',async ev=>{
   if(!ev.target.classList.contains('f')||!ev.target.files[0])return;
   const box=ev.target.closest('.item');try{box._img=await toSquare(ev.target.files[0],box.querySelector('.prev'))}catch(e){box.querySelector('.st').textContent=e.message}
 });
+async function restoreClick(ev,box){
+  const id=box.dataset.rid,st=box.querySelector('.st');
+  if(ev.target.closest('.hd')){box.classList.toggle('open');if(box.classList.contains('open'))OPEN.add('r'+id);else OPEN.delete('r'+id);return;}
+  const add=ev.target.classList.contains('rsb'),undo=ev.target.classList.contains('rsu');if(!add&&!undo)return;
+  const p=RM.find(x=>String(x.id)===id),fil=$('fil').value,keys=p.s.filter(s=>!fil||s[0]===fil).map(s=>rkey(p.id,s[0]));
+  ev.target.disabled=true;st.className='st';st.textContent='Saqlanyapti...';
+  try{const {data,sha}=await readEdits();const R=new Set(data._restore||[]);keys.forEach(k=>add?R.add(k):R.delete(k));
+    if(R.size)data._restore=[...R].sort();else delete data._restore;
+    await saveEdits(data,sha,`Admin: ${add?'saytga qaytarildi':'qaytarish bekor qilindi'} — ${p.n}${fil?' ('+fil+')':''}`);
+    EDITS=data;render();const nb=document.querySelector(`.item[data-rid="${id}"] .st`);
+    if(nb){nb.className='st ok';nb.textContent=add?"Saqlandi. Saytda bir soat ichida chiqadi.":'Bekor qilindi.';}
+  }catch(e){st.className='st err';st.textContent=e.message;ev.target.disabled=false;}
+}
 $('list').addEventListener('click',async ev=>{
-  const box=ev.target.closest('.item');if(!box)return;const id=box.dataset.id,st=box.querySelector('.st');
+  const box=ev.target.closest('.item');if(!box)return;
+  if(box.dataset.rid)return restoreClick(ev,box);
+  const id=box.dataset.id,st=box.querySelector('.st');
   if(ev.target.closest('.hd')){box.classList.toggle('open');if(box.classList.contains('open'))OPEN.add(id);else OPEN.delete(id);return;}
   const save=ev.target.classList.contains('sv'),reset=ev.target.classList.contains('rs'),del=ev.target.classList.contains('del');if(!save&&!reset&&!del)return;
   const p=ITEMS.find(x=>String(x.id)===id),fil=$('fil').value;
@@ -214,6 +251,7 @@ $('dailyBtn').onclick=async()=>{const b=$('dailyBtn');b.disabled=true;
   catch(e){alert(e.message)}b.disabled=false;};
 let t;$('q').oninput=()=>{clearTimeout(t);t=setTimeout(render,150)};
 $('fil').onchange=render;
+$('rmBtn').onclick=()=>{showRm=!showRm;rmLabel();$('onlyEd').hidden=showRm;render()};
 $('onlyEd').onclick=()=>{onlyEdited=!onlyEdited;$('onlyEd').textContent=onlyEdited?'Hammasi':'Faqat o\'zgartirilganlar';render()};
 $('enter').onclick=enter;$('tok').onkeydown=e=>{if(e.key==='Enter')enter()};
 $('logout').onclick=()=>{try{localStorage.removeItem('ls_admin_token')}catch(e){}location.reload()};
