@@ -173,7 +173,7 @@ function render(){
     return `<div class="item${OPEN.has(String(p.id))?' open':''}" data-id="${p.id}">
       ${img?`<img class="ph hd" src="${img}" alt="" loading="lazy">`:'<div class="ph hd"></div>'}
       <div><div class="hd"><div class="nm">${esc(p.n)}${EDITS[p.id]?'<span class="tag">o\'zgartirilgan</span>':''}</div>
-        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x&&!(EDITS._fixed||[]).some(k=>k.startsWith(p.id+'|'))?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} · ${p.s.map(s=>(e.hb||[]).includes(s[0])?`<s title="saytdan o'chirilgan">${esc(s[0])}</s>`:esc(s[0])).join(', ')}${e.h?' · <b>saytdan butunlay o\'chirilgan</b>':''}</div></div>
+        <div class="muted">${esc(p.bc||'')} · ${esc(p.b)} · asl chegirma −${origDisc(p)}%${x&&e.d==null&&!(EDITS._fixed||[]).some(k=>k.startsWith(p.id+'|'))?` · bugun −${Math.min(100,(e.d!=null?e.d:origDisc(p))+x)}%`:''} · ${p.s.map(s=>(e.hb||[]).includes(s[0])?`<s title="saytdan o'chirilgan">${esc(s[0])}</s>`:esc(s[0])).join(', ')}${e.h?' · <b>saytdan butunlay o\'chirilgan</b>':''}</div></div>
         <div class="ctl">
           <label>Chegirma % <input type="number" min="0" max="90" class="d" value="${e.d!=null?e.d:''}" placeholder="${origDisc(p)}"></label>
           ${SITE?`<label title="Inventarizatsiya: do'konda sanab chiqilgan haqiqiy soni">Sanaldi (dona) <input type="number" min="0" class="q" value="${e.q!=null?e.q:''}" placeholder="${p.s[0]?p.s[0][1]:''}"></label>`:''}
