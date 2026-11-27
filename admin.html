@@ -140,8 +140,8 @@ const DAY=864e5;
 const dailyCfg=()=>Object.assign({start:DSTART,step:1},EDITS._daily||{});
 const xtra=(c,t)=>t<c.start?0:(Math.floor((t-c.start)/DAY)+1)*c.step;
 function renderDaily(){const c=dailyCfg(),x=xtra(c,c.stop||Date.now());
-  $('daily').innerHTML=c.stop?`<b>Kunlik +1% to'xtatilgan.</b> Hozirgi qo'shimcha: +${x}%.`
-    :`<b>Har kuni 09:00 da barcha chegirmalar +1% oshadi.</b> Bugungi qo'shimcha: +${x}%${x?'':' (31.10.2026 dan boshlanadi)'}.`;
+  $('daily').innerHTML=c.stop?`<b>Kunlik +${c.step}% to'xtatilgan.</b> Hozirgi qo'shimcha: +${x}%.`
+    :`<b>Har kuni 09:00 da barcha chegirmalar +${c.step}% oshadi.</b> Bugungi qo'shimcha: +${x}%.`;
   $('dailyBtn').textContent=c.stop?'Davom ettirish':"To'xtatish";}
 async function saveEdits(data,sha,message){
   const r=await gh(SITE+'edits.json',{method:'PUT',body:JSON.stringify({message,content:b64(JSON.stringify(data,null,1)),sha:sha||undefined,branch:'main'})});
